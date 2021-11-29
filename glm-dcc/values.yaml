@@ -1,0 +1,13 @@
+# (C) Copyright 2021 Hewlett Packard Enterprise Development LP
+image:
+  repository: hpe-hcss/dcc
+  tag: latest # will be replaced
+  pullPolicy: Always
+  registry: 657273346644.dkr.ecr.us-west-2.amazonaws.com
+mgmt_if: "br0.101"
+secret:
+  name: app-env-secret
+env:
+  normal:
+    IPS: "172.16.0.101/23"
+    PNL: "net2"

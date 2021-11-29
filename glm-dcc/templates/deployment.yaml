@@ -1,0 +1,77 @@
+# (C) Copyright 2021 Hewlett Packard Enterprise Development LP
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dcc-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gl-storage-retain
+  resources:
+    requests:
+      storage: 40Gi
+---
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: dcc-br1
+spec:
+  config: '{
+    "cniVersion": "0.3.1",
+    "type": "bridge",
+    "bridge": "br1",
+    "ipam": {}
+  }'
+---
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: dcc-macvlan0
+spec:
+  config: '{
+          "cniVersion": "0.3.1",
+          "plugins": [
+            {
+              "type": "macvlan",
+              "master": {{ .Values.mgmt_if }}
+              "mode": "bridge"
+            }
+          ]
+  }'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dcc
+spec:
+  selector:
+    matchLabels:
+      app: dcc
+  template:
+    metadata:
+      annotations:
+         k8s.v1.cni.cncf.io/networks: dcc-macvlan0, dcc-br1
+      labels:
+        app: dcc
+    spec:
+      volumes:
+        - name: dcc-mount
+          persistentVolumeClaim:
+            claimName: dcc-pvc
+      containers:
+      - name: dcc
+        {{- if .Values.image.registry }}
+        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        {{- else }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          capabilities:
+            add:
+              - NET_ADMIN
+        volumeMounts:
+          - mountPath: "/var/local/quake"
+            name: dcc-mount
+        env:
+          {{- include "helpers.list-env-variables" . | indent 11 }}
